@@ -14,11 +14,7 @@ fn get_workspace_root() -> Result<std::path::PathBuf> {
     Ok(dir)
 }
 
-pub fn parse_lines_from_file<T>(
-    day: u8,
-    example: bool,
-    parser: fn(&str) -> Result<T>,
-) -> Result<Vec<T>> {
+pub fn read_file(day: u8, example: bool) -> Result<String> {
     if day == 0 || day > 25 {
         anyhow::bail!("Day must be between 1 and 25");
     }
@@ -36,5 +32,14 @@ pub fn parse_lines_from_file<T>(
     })?;
     let mut contents = String::new();
     file.read_to_string(&mut contents)?;
-    contents.lines().map(parser).collect()
+    Ok(contents)
+}
+
+pub fn parse_lines_from_file<T>(
+    day: u8,
+    example: bool,
+    parser: fn(&str) -> Result<T>,
+) -> Result<Vec<T>> {
+    let content = read_file(day, example)?;
+    content.lines().map(parser).collect()
 }
