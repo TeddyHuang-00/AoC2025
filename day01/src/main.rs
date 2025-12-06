@@ -29,6 +29,7 @@ impl Puzzle {
 impl Solution for Puzzle {
     const DAY: u8 = 1;
 
+    /// Simulate the operations and count the number of times we pass position 0
     fn part1(&self) -> String {
         let (_, cnt) = self.operations.iter().fold((50, 0), |(pos, cnt), op| {
             let new_pos = (pos + op).rem_euclid(100);
@@ -37,6 +38,8 @@ impl Solution for Puzzle {
         format!("{cnt}")
     }
 
+    /// Simulate the operations, breaking down large moves into full circles and remainders
+    /// and handle passing position 0 correctly for remainders
     fn part2(&self) -> String {
         let (_, cnt) = self.operations.iter().fold((50, 0), |(pos, cnt), op| {
             let full_circle = (op.abs() / 100).unsigned_abs();
