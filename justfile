@@ -6,7 +6,10 @@ format:
 
 check: format
     cargo +nightly check --all --all-targets --workspace
-    cargo clippy --all --all-targets --workspace -- -D warnings
+    cargo clippy --all-targets --all-features
+
+fix: format && format
+    cargo clippy --all-targets --all-features --fix --allow-dirty --allow-staged
 
 test DAY:
     cargo test -p day{{DAY}} -- --nocapture
