@@ -43,3 +43,16 @@ pub fn parse_lines_from_file<T>(
     let content = read_file(day, example)?;
     content.lines().map(parser).collect()
 }
+
+pub fn parse_comma_separated_from_file<T>(
+    day: u8,
+    example: bool,
+    parser: fn(&str) -> Result<T>,
+) -> Result<Vec<T>> {
+    let content = read_file(day, example)?;
+    content
+        .trim()
+        .split(',')
+        .map(|s| parser(s.trim()))
+        .collect()
+}
