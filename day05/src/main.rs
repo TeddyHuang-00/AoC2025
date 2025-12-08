@@ -58,7 +58,7 @@ impl Puzzle {
         let mut low = 0;
         let mut high = self.ids.len() - 1;
         while low <= high {
-            let mid = (low + high) / 2;
+            let mid = usize::midpoint(low, high);
             if self.ids[mid] >= start {
                 left_idx = Some(mid);
                 high = mid - 1;
@@ -75,7 +75,7 @@ impl Puzzle {
         let mut low = left_idx;
         let mut high = self.ids.len() - 1;
         while low <= high {
-            let mid = (low + high) / 2;
+            let mid = usize::midpoint(low, high);
             if self.ids[mid] <= end {
                 right_idx = Some(mid);
                 low = mid + 1;
