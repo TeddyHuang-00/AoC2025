@@ -3,7 +3,7 @@ use ndarray::{Array2, s};
 use rayon::prelude::*;
 use util::{
     Solution,
-    reader::{parse_grid, read_file},
+    reader::{parse_char_grid, read_file},
 };
 
 struct Puzzle {
@@ -12,7 +12,7 @@ struct Puzzle {
 
 impl Puzzle {
     fn new(example: bool) -> Result<Self> {
-        let banks = parse_grid(read_file(Self::DAY, example)?, |c| {
+        let banks = parse_char_grid(read_file(Self::DAY, example)?, |c| {
             c.to_digit(10)
                 .ok_or_else(|| anyhow::anyhow!("Failed to parse {c} as digit"))
         })?;

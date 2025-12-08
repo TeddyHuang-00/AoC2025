@@ -52,11 +52,26 @@ pub fn parse_comma_separated<T>(
         .collect()
 }
 
-pub fn parse_grid<T>(input: impl AsRef<str>, parser: fn(char) -> Result<T>) -> Result<Array2<T>> {
+pub fn parse_char_grid<T>(
+    input: impl AsRef<str>,
+    parser: fn(char) -> Result<T>,
+) -> Result<Array2<T>> {
     let content = input.as_ref();
     let grid = content
         .lines()
         .map(|line| line.chars().map(parser).collect())
+        .collect::<Result<Vec<Vec<T>>>>()?;
+    let row_count = grid.len();
+    let col_count = grid.first().map_or(0, Vec::len);
+    let flat_data = grid.into_iter().flatten().collect::<Vec<T>>();
+    Ok(Array2::from_shape_vec((row_count, col_count), flat_data)?)
+}
+
+pub fn parse_grid<T>(input: impl AsRef<str>, parser: fn(&str) -> Result<T>) -> Result<Array2<T>> {
+    let content = input.as_ref();
+    let grid = content
+        .lines()
+        .map(|line| line.split_whitespace().map(parser).collect::<Result<_>>())
         .collect::<Result<Vec<Vec<T>>>>()?;
     let row_count = grid.len();
     let col_count = grid.first().map_or(0, Vec::len);
