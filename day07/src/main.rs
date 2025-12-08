@@ -2,7 +2,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use anyhow::Result;
 use ndarray::{Zip, parallel::prelude::*, prelude::*};
-use rayon::iter::ParallelBridge;
+use rayon::prelude::*;
 use util::{
     Solution,
     reader::{parse_char_grid, read_file},

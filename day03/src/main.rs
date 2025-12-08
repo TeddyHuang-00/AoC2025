@@ -1,5 +1,5 @@
 use anyhow::Result;
-use ndarray::{Array2, s};
+use ndarray::{parallel::prelude::*, prelude::*};
 use rayon::prelude::*;
 use util::{
     Solution,
