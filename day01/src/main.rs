@@ -1,5 +1,8 @@
 use anyhow::Result;
-use util::{Solution, reader::parse_lines_from_file};
+use util::{
+    Solution,
+    reader::{parse_lines, read_file},
+};
 
 type Operation = i32;
 
@@ -21,7 +24,7 @@ impl Puzzle {
     }
 
     fn new(example: bool) -> Result<Self> {
-        let operations = parse_lines_from_file(Self::DAY, example, Self::parse_operation)?;
+        let operations = parse_lines(read_file(Self::DAY, example)?, Self::parse_operation)?;
         Ok(Self { operations })
     }
 }

@@ -1,6 +1,9 @@
 use anyhow::Result;
 use ndarray::{Zip, parallel::prelude::*, prelude::*};
-use util::{Solution, reader::parse_grid_from_file};
+use util::{
+    Solution,
+    reader::{parse_grid, read_file},
+};
 
 struct Puzzle {
     grid: Array2<u8>,
@@ -8,7 +11,7 @@ struct Puzzle {
 
 impl Puzzle {
     fn new(example: bool) -> Result<Self> {
-        let grid = parse_grid_from_file(Self::DAY, example, |c| match c {
+        let grid = parse_grid(read_file(Self::DAY, example)?, |c| match c {
             '.' => Ok(0),
             '@' => Ok(1),
             _ => anyhow::bail!("Invalid character in grid: {c}"),

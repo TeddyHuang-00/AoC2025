@@ -2,7 +2,10 @@ use std::collections::BTreeSet;
 
 use anyhow::Result;
 use rayon::prelude::*;
-use util::{Solution, reader::parse_comma_separated_from_file};
+use util::{
+    Solution,
+    reader::{parse_comma_separated, read_file},
+};
 
 type Range = (u64, u64);
 
@@ -21,7 +24,7 @@ impl Puzzle {
     }
 
     fn new(example: bool) -> Result<Self> {
-        let mut ranges = parse_comma_separated_from_file(Self::DAY, example, Self::parse_range)?;
+        let mut ranges = parse_comma_separated(read_file(Self::DAY, example)?, Self::parse_range)?;
         // Merge overlapping or contiguous ranges
         ranges.sort_unstable();
         let ranges = ranges

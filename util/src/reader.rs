@@ -36,34 +36,24 @@ pub fn read_file(day: u8, example: bool) -> Result<String> {
     Ok(contents)
 }
 
-pub fn parse_lines_from_file<T>(
-    day: u8,
-    example: bool,
-    parser: fn(&str) -> Result<T>,
-) -> Result<Vec<T>> {
-    let content = read_file(day, example)?;
-    content.lines().map(parser).collect()
+pub fn parse_lines<T>(input: impl AsRef<str>, parser: fn(&str) -> Result<T>) -> Result<Vec<T>> {
+    input.as_ref().lines().map(parser).collect()
 }
 
-pub fn parse_comma_separated_from_file<T>(
-    day: u8,
-    example: bool,
+pub fn parse_comma_separated<T>(
+    input: impl AsRef<str>,
     parser: fn(&str) -> Result<T>,
 ) -> Result<Vec<T>> {
-    let content = read_file(day, example)?;
-    content
+    input
+        .as_ref()
         .trim()
         .split(',')
         .map(|s| parser(s.trim()))
         .collect()
 }
 
-pub fn parse_grid_from_file<T>(
-    day: u8,
-    example: bool,
-    parser: fn(char) -> Result<T>,
-) -> Result<Array2<T>> {
-    let content = read_file(day, example)?;
+pub fn parse_grid<T>(input: impl AsRef<str>, parser: fn(char) -> Result<T>) -> Result<Array2<T>> {
+    let content = input.as_ref();
     let grid = content
         .lines()
         .map(|line| line.chars().map(parser).collect())
