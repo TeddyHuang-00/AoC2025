@@ -38,8 +38,8 @@ impl Solution for Puzzle {
         format!("{cnt}")
     }
 
-    /// Simulate the operations, breaking down large moves into full circles and remainders
-    /// and handle passing position 0 correctly for remainders
+    /// Simulate the operations, breaking down large moves into full circles and
+    /// remainders and handle passing position 0 correctly for remainders
     fn part2(&self) -> String {
         let (_, cnt) = self.operations.iter().fold((50, 0), |(pos, cnt), op| {
             let full_circle = (op.abs() / 100).unsigned_abs();

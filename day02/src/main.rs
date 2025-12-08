@@ -63,15 +63,16 @@ impl Puzzle {
         factors.into_iter().collect()
     }
 
-    /// Calculate the sum of invalid IDs in the given range for IDs using n digits
-    /// with a certain repeat pattern.
+    /// Calculate the sum of invalid IDs in the given range for IDs using n
+    /// digits with a certain repeat pattern.
     ///
     /// For example, for n=6 and repeat=3, the invalid IDs are of the form:
     /// ababab where a,b are digits from 0-9 (with a != 0)
     fn get_sum_invalid_ids(range: Range, n: u32, repeat: u32) -> u64 {
         // The pattern repeats every k = n / repeat digits
         let k = n / repeat;
-        // Calculate the lower and upper bounds for n-digit numbers with the given pattern
+        // Calculate the lower and upper bounds for n-digit numbers with the given
+        // pattern
         let lower = ((k - 1)..n)
             .step_by(k as usize)
             .map(|k| 10u64.pow(k))
@@ -128,20 +129,21 @@ impl Solution for Puzzle {
     /// For part 2, we need to consider all repeating patterns.
     ///
     /// This can be seen as a direct extension of part 1, where instead of just
-    /// considering the pattern where the patterns repeat twice (e.g., 1212 for n=4),
-    /// we consider all patterns where the digits repeat k times, for all k that
-    /// are factors of n.
+    /// considering the pattern where the patterns repeat twice (e.g., 1212 for
+    /// n=4), we consider all patterns where the digits repeat k times, for
+    /// all k that are factors of n.
     ///
     /// We can further find that only prime factors need to be considered, since
     /// any composite factor can be formed by combining smaller prime factors,
     /// and their contributions have already been counted. For example, for n=8,
-    /// the pattern that repeats 4 times (e.g., abcdabcd) can be formed by combining
-    /// the patterns that repeat 2 times (e.g., abababab).
+    /// the pattern that repeats 4 times (e.g., abcdabcd) can be formed by
+    /// combining the patterns that repeat 2 times (e.g., abababab).
     ///
-    /// However, we still need to consider the case where all digits are the same
-    /// (e.g., 1111, 2222, ..., 9999 for n=4), which is covered by all prime factors.
-    /// Therefore, we handle this case separately, by subtracting it out after adding
-    /// the contributions from prime factors.
+    /// However, we still need to consider the case where all digits are the
+    /// same (e.g., 1111, 2222, ..., 9999 for n=4), which is covered by all
+    /// prime factors. Therefore, we handle this case separately, by
+    /// subtracting it out after adding the contributions from prime
+    /// factors.
     fn part2(&self) -> String {
         self.ranges
             .iter()
