@@ -27,7 +27,7 @@ coverage:
 
 [group("puzzle")]
 test DAY=LATEST:
-    cargo test -p day{{ DAY }} -- --nocapture
+    cargo test -p day{{ DAY }} -- --no-capture
 
 [group("puzzle")]
 run DAY=LATEST:
