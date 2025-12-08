@@ -145,7 +145,7 @@ impl Solution for Puzzle {
     /// made, so that we don't have to consider all pairs every time.
     fn part2(&self) -> String {
         // Initialize closest neighbor for each node, stored in a min-heap
-        let mut closest_neightbor = (0..self.nodes.nrows())
+        let mut closest_neighbor = (0..self.nodes.nrows())
             .into_par_iter()
             .map(|i| {
                 (0..self.nodes.nrows())
@@ -160,7 +160,7 @@ impl Solution for Puzzle {
         let mut dsu = DisjointSet::new(self.nodes.nrows());
         loop {
             // We greedily process the closest edge
-            let Some(Reverse((_, i, j))) = closest_neightbor.pop() else {
+            let Some(Reverse((_, i, j))) = closest_neighbor.pop() else {
                 panic!("No more edges to process");
             };
             let root_i = dsu.find(i);
@@ -175,7 +175,7 @@ impl Solution for Puzzle {
                 return (self.nodes[[i, 0]] * self.nodes[[j, 0]]).to_string();
             }
             // Otherwise, we need to continue updating the closest neighbor for node i
-            closest_neightbor.push(
+            closest_neighbor.push(
                 (0..self.nodes.nrows())
                     // Filter out nodes in the same component as i
                     .filter_map(|k| (root_i != dsu.find(k)).then_some((self.dist(i, k), i, k)))
