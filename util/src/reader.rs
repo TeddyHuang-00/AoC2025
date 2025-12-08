@@ -86,3 +86,31 @@ pub fn parse_grid<T>(input: impl AsRef<str>, parser: fn(&str) -> Result<T>) -> R
         .collect::<Result<Vec<Vec<T>>>>()?;
     nested_vec_to_array2(grid)
 }
+
+pub fn parse_fixed_width_grid<T>(
+    input: impl AsRef<str>,
+    column_widths: impl AsRef<[usize]>,
+    parser: fn(&str) -> Result<T>,
+) -> Result<Array2<T>> {
+    let content = input.as_ref();
+    let column_widths = column_widths.as_ref();
+    let grid = content
+        .lines()
+        .map(|line| {
+            let mut cols = Vec::with_capacity(column_widths.len());
+            let mut start = 0;
+            for &width in column_widths {
+                let end = start + width;
+                let slice = &line[start..end];
+                cols.push(parser(slice)?);
+                start = end;
+            }
+            // Handle any remaining characters in the line as the last column
+            if start != line.len() - 1 {
+                cols.push(parser(&line[start..])?);
+            }
+            Ok(cols)
+        })
+        .collect::<Result<Vec<Vec<T>>>>()?;
+    nested_vec_to_array2(grid)
+}
