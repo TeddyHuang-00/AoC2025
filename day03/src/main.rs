@@ -1,26 +1,18 @@
 use anyhow::Result;
+use ndarray::{Array2, s};
 use rayon::prelude::*;
-use util::{Solution, reader::parse_lines_from_file};
-
-type Bank = Vec<u32>;
+use util::{Solution, reader::parse_grid_from_file};
 
 struct Puzzle {
-    banks: Vec<Bank>,
+    banks: Array2<u32>,
 }
 
 impl Puzzle {
-    fn parse_bank(input: &str) -> Result<Bank> {
-        input
-            .chars()
-            .map(|c| {
-                c.to_digit(10)
-                    .ok_or_else(|| anyhow::anyhow!("Failed to parse {c} as digit"))
-            })
-            .collect::<Result<Bank>>()
-    }
-
     fn new(example: bool) -> Result<Self> {
-        let banks = parse_lines_from_file(Self::DAY, example, Self::parse_bank)?;
+        let banks = parse_grid_from_file(Self::DAY, example, |c| {
+            c.to_digit(10)
+                .ok_or_else(|| anyhow::anyhow!("Failed to parse {c} as digit"))
+        })?;
         Ok(Self { banks })
     }
 }
@@ -33,10 +25,12 @@ impl Solution for Puzzle {
     /// Put them together and sum the results for all banks.
     fn part1(&self) -> String {
         self.banks
-            .par_iter()
+            .outer_iter()
+            .par_bridge()
             .map(|bank| {
                 // Find the largest digit in the bank[:-1]
-                let (idx, &first_digit) = bank[..bank.len() - 1]
+                let (idx, &first_digit) = bank
+                    .slice(s![..bank.len() - 1])
                     .iter()
                     .enumerate()
                     .reduce(|(l_idx, l_val), (idx, val)| {
@@ -48,7 +42,7 @@ impl Solution for Puzzle {
                     })
                     .unwrap_or_else(|| unreachable!("Bank should have at least two digits"));
                 // Find the largest digit in the bank after idx
-                let second_digit = bank[idx + 1..].iter().max().unwrap_or_else(|| {
+                let &second_digit = bank.slice(s![idx + 1..]).iter().max().unwrap_or_else(|| {
                     unreachable!("At least one digit should be after the largest digit")
                 });
                 first_digit * 10 + second_digit
@@ -62,7 +56,8 @@ impl Solution for Puzzle {
     /// their order.
     fn part2(&self) -> String {
         self.banks
-            .par_iter()
+            .outer_iter()
+            .par_bridge()
             .map(|bank| {
                 bank.iter().fold(vec![0u64; 13], |mut dp, &digit| {
                     for len in (1..=12).rev() {
