@@ -5,7 +5,7 @@ format:
     cargo sort-derives
 
 check: format
-    cargo +nightly check --all --all-targets --workspace
+    cargo check --all --all-targets --workspace
     cargo clippy --all-targets --all-features
 
 fix: format && format
