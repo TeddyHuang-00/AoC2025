@@ -23,3 +23,6 @@ new DAY: && format
     cargo new day{{DAY}} --bin
     cat template/main.rs | sed "s/000000/{{DAY}}/g" > day{{DAY}}/src/main.rs
     cargo add -p day{{DAY}} anyhow util
+
+coverage:
+    cargo tarpaulin --lib --out Stdout
