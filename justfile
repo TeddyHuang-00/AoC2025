@@ -1,10 +1,11 @@
 format:
     cargo +nightly fmt --all
-    cargo autoinherit
+    cargo autoinherit --prefer-simple-dotted
     cargo sort --workspace
     cargo sort-derives
 
 check: format
+    typos **/*.rs
     cargo check --all --all-targets --workspace
     cargo clippy --all-targets --all-features
 
