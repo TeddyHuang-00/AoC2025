@@ -1,6 +1,7 @@
 use std::collections::BTreeSet;
 
 use anyhow::Result;
+use rayon::prelude::*;
 use util::{Solution, reader::parse_comma_separated_from_file};
 
 type Range = (u64, u64);
@@ -111,7 +112,7 @@ impl Solution for Puzzle {
     /// and sum the invalid IDs.
     fn part1(&self) -> String {
         self.ranges
-            .iter()
+            .par_iter()
             .map(|&(start, end)| {
                 // Determine the min and max number of digits in the range
                 let min_n = start.ilog10() + 1;
@@ -146,7 +147,7 @@ impl Solution for Puzzle {
     /// factors.
     fn part2(&self) -> String {
         self.ranges
-            .iter()
+            .par_iter()
             .map(|&(start, end)| {
                 // Determine the min and max number of digits in the range
                 let min_n = start.ilog10() + 1;

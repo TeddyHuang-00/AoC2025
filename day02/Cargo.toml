@@ -5,6 +5,7 @@ edition = "2024"
 
 [dependencies]
 anyhow.workspace = true
+rayon.workspace = true
 util.workspace = true
 
 [lints]
