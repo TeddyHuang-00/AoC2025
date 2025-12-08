@@ -1,3 +1,5 @@
+//! Common reading and parsing utilities
+
 use std::{fs::File, io::Read};
 
 use anyhow::Result;
