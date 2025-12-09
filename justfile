@@ -1,4 +1,5 @@
 LATEST := `fd -t d "day*" . | sed 's/.*day\([0-9]*\).*/\1/' | sort -n | tail -n 1`
+NEXT := `fd -t d "day*" . | sed 's/.*day\([0-9]*\).*/\1/' | sort -n | tail -n 1 | awk '{printf "%02d", $1 + 1}'`
 
 _default:
     @just --choose
@@ -34,7 +35,7 @@ run DAY=LATEST:
     cargo run -r -p day{{ DAY }}
 
 [group("puzzle")]
-new DAY=LATEST: && format
+new DAY=NEXT: && format
     -rm -rf day{{ DAY }}
     touch inputs/day{{ DAY }}.txt inputs/day{{ DAY }}-example.txt
     cargo new day{{ DAY }} --bin
