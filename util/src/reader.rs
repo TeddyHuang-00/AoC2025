@@ -68,7 +68,10 @@ pub fn read_file(day: u8, example: bool) -> Result<String> {
 ///
 /// # Errors
 /// This function will return any errors produced by the parser function.
-pub fn parse_lines<T>(input: impl AsRef<str>, parser: fn(&str) -> Result<T>) -> Result<Vec<T>> {
+pub fn parse_lines<T, E>(
+    input: impl AsRef<str>,
+    parser: fn(&str) -> Result<T, E>,
+) -> Result<Vec<T>, E> {
     input.as_ref().lines().map(parser).collect()
 }
 
@@ -76,10 +79,10 @@ pub fn parse_lines<T>(input: impl AsRef<str>, parser: fn(&str) -> Result<T>) -> 
 ///
 /// # Errors
 /// This function will return any errors produced by the parser function.
-pub fn parse_comma_separated<T>(
+pub fn parse_comma_separated<T, E>(
     input: impl AsRef<str>,
-    parser: fn(&str) -> Result<T>,
-) -> Result<Vec<T>> {
+    parser: fn(&str) -> Result<T, E>,
+) -> Result<Vec<T>, E> {
     input
         .as_ref()
         .trim()
@@ -92,10 +95,10 @@ pub fn parse_comma_separated<T>(
 ///
 /// # Errors
 /// This function will return an error if the parser function returns an error.
-pub fn parse_whitespace_separated<T>(
+pub fn parse_whitespace_separated<T, E>(
     input: impl AsRef<str>,
-    parser: fn(&str) -> Result<T>,
-) -> Result<Vec<T>> {
+    parser: fn(&str) -> Result<T, E>,
+) -> Result<Vec<T>, E> {
     input.as_ref().split_whitespace().map(parser).collect()
 }
 
@@ -105,15 +108,19 @@ pub fn parse_whitespace_separated<T>(
 /// This function will return an error if:
 /// - any line has a different number of columns, or
 /// - the parser function returns an error.
-pub fn parse_char_grid<T>(
+pub fn parse_char_grid<T, E>(
     input: impl AsRef<str>,
-    parser: fn(char) -> Result<T>,
-) -> Result<Array2<T>> {
+    parser: fn(char) -> Result<T, E>,
+) -> Result<Array2<T>>
+where
+    E: Into<anyhow::Error>,
+{
     let content = input.as_ref();
     let grid = content
         .lines()
         .map(|line| line.chars().map(parser).collect())
-        .collect::<Result<Vec<Vec<T>>>>()?;
+        .collect::<Result<Vec<Vec<T>>, E>>()
+        .map_err(Into::into)?;
     nested_vec_to_array2(grid)
 }
 
@@ -123,12 +130,19 @@ pub fn parse_char_grid<T>(
 /// This function will return an error if:
 /// - any line has a different number of columns, or
 /// - the parser function returns an error.
-pub fn parse_grid<T>(input: impl AsRef<str>, parser: fn(&str) -> Result<T>) -> Result<Array2<T>> {
+pub fn parse_grid<T, E>(
+    input: impl AsRef<str>,
+    parser: fn(&str) -> Result<T, E>,
+) -> Result<Array2<T>>
+where
+    E: Into<anyhow::Error>,
+{
     let content = input.as_ref();
     let grid = content
         .lines()
         .map(|line| parse_whitespace_separated(line, parser))
-        .collect::<Result<Vec<Vec<T>>>>()?;
+        .collect::<Result<Vec<Vec<T>>, E>>()
+        .map_err(Into::into)?;
     nested_vec_to_array2(grid)
 }
 
@@ -141,11 +155,14 @@ pub fn parse_grid<T>(input: impl AsRef<str>, parser: fn(&str) -> Result<T>) -> R
 /// - the specified column widths do not match the input data, or
 /// - the parser function returns an error, or
 /// - the resulting nested Vec cannot be converted into an Array2.
-pub fn parse_fixed_width_grid<T>(
+pub fn parse_fixed_width_grid<T, E>(
     input: impl AsRef<str>,
     column_widths: impl AsRef<[usize]>,
-    parser: fn(&str) -> Result<T>,
-) -> Result<Array2<T>> {
+    parser: fn(&str) -> Result<T, E>,
+) -> Result<Array2<T>>
+where
+    E: Into<anyhow::Error>,
+{
     let content = input.as_ref();
     let column_widths = column_widths.as_ref();
     let grid = content
@@ -159,12 +176,12 @@ pub fn parse_fixed_width_grid<T>(
                 }
                 let end = start + width;
                 let slice = &line[start..end];
-                cols.push(parser(slice)?);
+                cols.push(parser(slice).map_err(Into::into)?);
                 start = end;
             }
             // Handle any remaining characters in the line as the last column
             if start < line.len() {
-                cols.push(parser(&line[start..])?);
+                cols.push(parser(&line[start..]).map_err(Into::into)?);
             }
             Ok(cols)
         })
@@ -257,8 +274,8 @@ mod tests {
     #[test]
     fn test_parse_char_grid() {
         let input = "abc\ndef\nghi";
-        let array =
-            parse_char_grid(input, Ok).unwrap_or_else(|e| panic!("Failed to parse char grid: {e}"));
+        let array = parse_char_grid(input, anyhow::Ok)
+            .unwrap_or_else(|e| panic!("Failed to parse char grid: {e}"));
         assert_eq!(array.shape(), &[3, 3]);
         assert_eq!(
             array,
@@ -266,7 +283,7 @@ mod tests {
         );
 
         let input_invalid = "abc\ndef\ngh";
-        let result = parse_char_grid(input_invalid, Ok);
+        let result = parse_char_grid(input_invalid, anyhow::Ok);
         assert!(result.is_err());
     }
 

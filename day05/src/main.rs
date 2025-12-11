@@ -25,11 +25,11 @@ impl Puzzle {
                 .ok_or_else(|| anyhow::anyhow!("Invalid range format in header: {line}"))?;
             let start: ID = start.parse()?;
             let end: ID = end.parse()?;
-            Ok((start, end))
+            anyhow::Ok((start, end))
         })?;
         let mut ids = parse_lines(ids.trim(), |line| {
             let id: ID = line.trim().parse()?;
-            Ok(id)
+            anyhow::Ok(id)
         })?;
         // Sort ranges and ids for easier processing later
         ranges.sort_unstable();

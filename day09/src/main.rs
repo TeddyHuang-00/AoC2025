@@ -14,7 +14,7 @@ type Edge = (usize, usize);
 impl Puzzle {
     fn new(example: bool) -> Result<Self> {
         let content = read_file(Self::DAY, example)?.replace(',', " ");
-        let nodes = parse_grid(content, |s| s.parse().map_err(Into::into))?;
+        let nodes = parse_grid(content, str::parse)?;
         Ok(Self { nodes })
     }
 

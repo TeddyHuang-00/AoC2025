@@ -58,11 +58,11 @@ impl Puzzle {
             |s| match s {
                 v if v.starts_with(' ') => {
                     let num: u64 = v.trim().parse()?;
-                    Ok(AlignedValue::Right(num))
+                    anyhow::Ok(AlignedValue::Right(num))
                 }
                 v => {
                     let num: u64 = v.trim().parse()?;
-                    Ok(AlignedValue::Left(num))
+                    anyhow::Ok(AlignedValue::Left(num))
                 }
             },
         )?;
