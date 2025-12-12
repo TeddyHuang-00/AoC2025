@@ -5,7 +5,6 @@ edition = "2024"
 
 [dependencies]
 anyhow.workspace = true
-good_lp.workspace = true
 rayon.workspace = true
 util.workspace = true
 

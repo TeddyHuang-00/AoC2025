@@ -4,9 +4,6 @@ resolver = "3"
 
 [workspace.dependencies]
 anyhow = "1.0.100"
-good_lp = { version = "1.14.2", features = [
-    "microlp",
-], default-features = false }
 ndarray = { version = "0.17.1", features = ["rayon"] }
 rayon = "1.11.0"
 util = { version = "0.1.0", path = "util" }

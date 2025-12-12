@@ -1,10 +1,6 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 
 use anyhow::Result;
-use good_lp::{
-    Expression, ProblemVariables, Solution as LpSolution, SolverModel, VariableDefinition,
-    default_solver,
-};
 use rayon::prelude::*;
 use util::{
     Solution,
@@ -131,74 +127,122 @@ impl Puzzle {
         dp.get(&goal).copied()
     }
 
-    /// When the goal state changes to a count of presses for each light, this
-    /// forms a linear system $Ax = b$, where:
-    /// - A is the matrix formed by the button transitions, either 0 or 1
-    ///   depending on whether a button affects a light
-    /// - x is the vector of button presses (to be solved), non-negative
-    ///   integers
-    /// - b is the goal vector of required presses for each light, also
-    ///   non-negative integers
+    /// The original solution for this is to use a integer linear programming
+    /// solver which I didn't implement myself. The solution is fast, but
+    /// involves introducing an extra dependency dedicated to solving linear
+    /// programming problems. If you are interested, please check this out:
+    /// <https://github.com/TeddyHuang-00/AoC2025/blob/1d136c914936ae3f4c17cc11d0643650d31f9a4a/day10>
     ///
-    /// This forms a problem of integer linear programming. I did try an A-star
-    /// search for this (taking the Chebyshev distance as heuristic), but it
-    /// took too long to run on the full input and requires more RAM than anyone
-    /// would reasonably have, even with further compression optimizations.
+    /// The current solution is inspired by @tenthmascot on Reddit:
+    /// <https://www.reddit.com/r/adventofcode/comments/1pk87hl/2025_day_10_part_2_bifurcate_your_way_to_victory>
     ///
-    /// Thus, a proper ILP solver is needed. And to keep my own sanity, I
-    /// resorted to introduce a solver library, `good_lp`, only for this part.
-    /// At least it is a pure Rust library (with some backend) with no external
-    /// dependencies, and I learned a new thing in the process.
-    fn integer_programming(goal: &[Count], transition: &[LightState]) -> Option<u16> {
-        let mut problem = ProblemVariables::new();
-        // Define variables
-        let vars = (0..transition.len())
-            .map(|_| problem.add(VariableDefinition::new().integer().min(0)))
-            .collect::<Vec<_>>();
-        // Define constraints
-        let constraints = goal
+    /// It is basically a divide-and-conquer approach to solve the problem. Here
+    /// is a brief conceptual explanation: If we have an optimal solution
+    /// (number of button presses) for a given target state, the solution can
+    /// always be split into two parts:
+    /// 1. The residual state that each button press is 0 or 1, which reaches
+    ///    the same light state as the target state.
+    /// 2. The remaining state that each button press is an even number, and can
+    ///    be seen as twice the optimal solution for the subproblem of the
+    ///    remaining state (by halving the count of presses for each light).
+    ///
+    /// The proof to it is also simple: The split between the residual state and
+    /// the remaining state is always possible. The remaining state will always
+    /// be even so that the two parts cancel each other out. We can demonstrate
+    /// the optimality by contradiction: if for the given split in optimal
+    /// solution, we are able to find a better solution for its subproblem, we
+    /// can always move that part into the residual state, and the original
+    /// solution split is not optimal.
+    ///
+    /// Although the branching factor is upper bounded by `2^n` where `n` is the
+    /// number of buttons, the actual branching factor is much smaller in
+    /// practice due to the constraints of the problem (need to constitute to
+    /// the goal state, and number of presses on lights should not exceed the
+    /// goal). Also, the number of recursion is bounded by `log_2 N` where `N`
+    /// is the maximum goal state, and in this case, `log_2 2^8` gives 8. Also
+    /// note that we are using cache to avoid redundant calculations, so that we
+    /// don't recalculate the solution for the same state multiple times. These
+    /// all make the solution much faster in practice.
+    ///
+    /// To implement this, we actually use a dynamic programming approach to
+    /// find the optimal solution. But the key idea is the same, we just need to
+    /// test all possible splits and use caching to avoid redundant
+    /// calculations.
+    fn divide_and_conquer(goal: &[Count], transition: &[LightState]) -> Option<u16> {
+        let transition = transition
             .iter()
-            .enumerate()
-            .map(|(i, &g)| {
-                transition
+            .map(|&(mut t)| {
+                // Quick conversion from bitmasks to vectors of 0 or 1
+                let mut bits = vec![0; goal.len()];
+                while t != 0 {
+                    let i = t.trailing_zeros() as usize;
+                    bits[i] = 1;
+                    t ^= 1 << i;
+                }
+                bits
+            })
+            .collect::<Vec<_>>();
+        let mut cache = HashMap::new();
+        Self::try_divide_cached(&mut cache, goal, &transition)
+    }
+
+    /// Compress the goal state into a single integer for caching
+    fn compress(goal: &[Count]) -> u128 {
+        goal.iter().fold(0, |acc, &g| (acc << 8) | u128::from(g))
+    }
+
+    /// Try to solve the subproblem with caching
+    fn try_divide_cached(
+        cache: &mut HashMap<u128, Option<u16>>,
+        goal: &[Count],
+        transition: &[Vec<u8>],
+    ) -> Option<u16> {
+        // Check cache first
+        if let Some(&res) = cache.get(&Self::compress(goal)) {
+            return res;
+        }
+        // Base case: if all counts are 0, no button press is needed
+        if goal.iter().all(|&g| g == 0) {
+            return Some(0);
+        }
+        // Try splitting the problem into two parts
+        let mut optimal = None;
+        for (cnt, residual) in transition
+            .iter()
+            .fold(vec![(0, vec![0; goal.len()])], |mut acc, t| {
+                let new = acc
                     .iter()
-                    .enumerate()
-                    .fold(Expression::default(), |mut expr, (j, &t)| {
-                        if (t & (1 << i)) != 0 {
-                            expr += vars[j];
-                        }
-                        expr
+                    .map(|(cnt, a)| {
+                        (
+                            cnt + 1,
+                            a.iter()
+                                .zip(t.iter())
+                                .map(|(&a, &b)| a + b)
+                                .collect::<Vec<_>>(),
+                        )
                     })
-                    .eq(g)
+                    .filter(|(_, s)| s.iter().zip(goal.iter()).all(|(x, g)| x <= g))
+                    .collect::<Vec<_>>();
+                acc.extend(new);
+                acc
             })
-            .collect::<Vec<_>>();
-        // Define objective
-        let objective = vars
-            .iter()
-            .fold(Expression::default(), |acc, &var| acc + var);
-        // Finally we have every component to build the problem
-        let problem = problem
-            .minimise(objective)
-            .using(default_solver)
-            .with_all(constraints);
-        let solution = problem.solve().ok()?;
-        let int_solution = vars
-            .iter()
-            .map(|&x| {
-                let v = solution.eval(x);
-                // The solver should always return integer values for integer variables,
-                // but we add checks just in case, so that we can reasonably allow the
-                // conversion from f64 to u16.
-                assert!(
-                    (v - v.round()).abs() <= 1e-6,
-                    "Non-integer solution found: {v}"
-                );
-                assert!(v <= f64::from(u16::MAX), "Solution value too large: {v}");
-                #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-                Some(v.round() as u16)
-            })
-            .collect::<Option<Vec<_>>>()?;
-        Some(int_solution.iter().sum())
+            .into_iter()
+            .filter(|(_, s)| s.iter().zip(goal).all(|(a, b)| a % 2 == b % 2))
+        {
+            let remaining = goal
+                .iter()
+                .zip(residual.iter())
+                .map(|(&g, &r)| (g - r) / 2)
+                .collect::<Vec<_>>();
+            if let Some(subsolution) = Self::try_divide_cached(cache, &remaining, transition) {
+                let solution = cnt + 2 * subsolution;
+                optimal = optimal.map_or(Some(solution), |s: u16| Some(s.min(solution)));
+            }
+        }
+        // `None` means the current state is not achievable, `Some(x)` means we found a
+        // solution which guarantees to be optimal
+        cache.insert(Self::compress(goal), optimal);
+        optimal
     }
 }
 
@@ -221,7 +265,7 @@ impl Solution for Puzzle {
         self.machines
             .par_iter()
             .map(|machine| {
-                Self::integer_programming(&machine.count, &machine.buttons)
+                Self::divide_and_conquer(&machine.count, &machine.buttons)
                     // The problem guarantees that a solution exists for every machine
                     .unwrap_or_else(|| unreachable!("No solution found for machine"))
             })
