@@ -50,12 +50,17 @@ coverage:
 [doc("Run tests for a specific day's puzzle with example input")]
 [group("puzzle")]
 test DAY=LATEST:
-    cargo test -p day{{ DAY }} -- --no-capture
+    cargo test -p day{{ DAY }} "test_" -- --no-capture
 
 [doc("Run the solution for a specific day's puzzle with actual input")]
 [group("puzzle")]
 run DAY=LATEST:
     cargo run -r -p day{{ DAY }}
+
+[doc("Run the benchmark for a specific day's puzzle and record performance")]
+[group("puzzle")]
+bench DAY=LATEST:
+    cargo test -r -p day{{ DAY }} "benchmark" -- --no-capture
 
 [doc("Create a new day's puzzle scaffold")]
 [group("puzzle")]

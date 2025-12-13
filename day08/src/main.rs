@@ -203,6 +203,10 @@ fn main() -> Result<()> {
 
 #[cfg(test)]
 mod tests {
+    use std::time::Duration;
+
+    use util::{Benchmark, Serializable};
+
     use super::*;
 
     #[test]
@@ -217,5 +221,10 @@ mod tests {
         let puzzle = Puzzle::new(true)?;
         assert_eq!(puzzle.part2(), "25272");
         Ok(())
+    }
+
+    #[test]
+    fn benchmark() -> Result<()> {
+        Puzzle::bench_all(Duration::from_secs(1)).to_csv(Puzzle::DAY)
     }
 }
