@@ -144,6 +144,10 @@ impl Puzzle {
 impl Solution for Puzzle {
     const DAY: u8 = 11;
 
+    fn parse(example: bool) -> Self {
+        Self::new(example).unwrap_or_else(|e| panic!("Failed to parse input: {e}"))
+    }
+
     /// Part 1 we just count the number of paths, no special update or transit
     /// logic needed.
     fn part1(&self) -> String {

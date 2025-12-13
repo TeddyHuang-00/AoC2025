@@ -12,6 +12,10 @@ impl Puzzle {
 impl Solution for Puzzle {
     const DAY: u8 = 000000;
 
+    fn parse(example: bool) -> Self {
+        Self::new(example).unwrap_or_else(|e| panic!("Failed to parse input: {e}"))
+    }
+
     fn part1(&self) -> String {
         "Part 1 not implemented".to_string()
     }

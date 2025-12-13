@@ -23,6 +23,10 @@ impl Puzzle {
 impl Solution for Puzzle {
     const DAY: u8 = 3;
 
+    fn parse(example: bool) -> Self {
+        Self::new(example).unwrap_or_else(|e| panic!("Failed to parse input: {e}"))
+    }
+
     /// For each bank, find the largest digit in the bank[:-1] so that there is
     /// at least one digit after it, then find the largest digit after it.
     /// Put them together and sum the results for all banks.

@@ -101,6 +101,10 @@ impl Puzzle {
 impl Solution for Puzzle {
     const DAY: u8 = 2;
 
+    fn parse(example: bool) -> Self {
+        Self::new(example).unwrap_or_else(|e| panic!("Failed to parse input: {e}"))
+    }
+
     /// For invalid IDs, we can see that they must be in the form of
     /// 11, 22, ..., 99 (base 11)
     /// 1010, 2020, ..., 9999 (base 101)

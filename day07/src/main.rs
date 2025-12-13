@@ -63,6 +63,10 @@ impl Puzzle {
 impl Solution for Puzzle {
     const DAY: u8 = 7;
 
+    fn parse(example: bool) -> Self {
+        Self::new(example).unwrap_or_else(|e| panic!("Failed to parse input: {e}"))
+    }
+
     /// To find all splitters along the path, we can do a depth-first search
     /// from the start position, keeping track of all visited positions
     /// (splitters), and let frontiers be the start for the next beam.

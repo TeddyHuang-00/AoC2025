@@ -91,6 +91,10 @@ impl Puzzle {
 impl Solution for Puzzle {
     const DAY: u8 = 9;
 
+    fn parse(example: bool) -> Self {
+        Self::new(example).unwrap_or_else(|e| panic!("Failed to parse input: {e}"))
+    }
+
     /// Find the largest area defined by any two nodes, without any constraints,
     /// so we can brute-force the search and just measure all unique pairs.
     fn part1(&self) -> String {

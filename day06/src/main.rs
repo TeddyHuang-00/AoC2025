@@ -141,6 +141,10 @@ impl Puzzle {
 impl Solution for Puzzle {
     const DAY: u8 = 6;
 
+    fn parse(example: bool) -> Self {
+        Self::new(example).unwrap_or_else(|e| panic!("Failed to parse input: {e}"))
+    }
+
     /// Evaluate the expressions in parallel, summing the results.
     ///
     /// Pretty straightforward.

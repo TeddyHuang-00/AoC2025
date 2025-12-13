@@ -32,6 +32,10 @@ impl Puzzle {
 impl Solution for Puzzle {
     const DAY: u8 = 1;
 
+    fn parse(example: bool) -> Self {
+        Self::new(example).unwrap_or_else(|e| panic!("Failed to parse input: {e}"))
+    }
+
     /// Simulate the operations and count the number of times we pass position 0
     fn part1(&self) -> String {
         let (_, cnt) = self.operations.iter().fold((50, 0), |(pos, cnt), op| {

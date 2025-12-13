@@ -95,6 +95,10 @@ impl Puzzle {
 impl Solution for Puzzle {
     const DAY: u8 = 5;
 
+    fn parse(example: bool) -> Self {
+        Self::new(example).unwrap_or_else(|e| panic!("Failed to parse input: {e}"))
+    }
+
     /// There are two ways to solve part 1:
     /// 1. Iterate through all IDs and check if they are in any range
     /// 2. Iterate through ranges and count how many IDs fall into them

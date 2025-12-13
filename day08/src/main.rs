@@ -89,6 +89,10 @@ impl Puzzle {
 impl Solution for Puzzle {
     const DAY: u8 = 8;
 
+    fn parse(example: bool) -> Self {
+        Self::new(example).unwrap_or_else(|e| panic!("Failed to parse input: {e}"))
+    }
+
     /// Since we only need to find top `max_steps` smallest edges, we can use a
     /// max-heap to keep track while iterating through all pairs of nodes.
     fn part1(&self) -> String {

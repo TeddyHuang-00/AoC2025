@@ -48,6 +48,10 @@ impl Puzzle {
 impl Solution for Puzzle {
     const DAY: u8 = 4;
 
+    fn parse(example: bool) -> Self {
+        Self::new(example).unwrap_or_else(|e| panic!("Failed to parse input: {e}"))
+    }
+
     /// Count the number of removable items in the initial grid. Nothing fancy,
     /// just simulate the removal once.
     fn part1(&self) -> String {

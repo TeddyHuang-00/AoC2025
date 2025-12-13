@@ -5,24 +5,7 @@ use std::{fs::File, io::Read};
 use anyhow::Result;
 use ndarray::Array2;
 
-/// Get the root directory of the workspace by looking for Cargo.lock
-///
-/// Returns a `PathBuf` representing the workspace root directory.
-///
-/// # Errors
-/// This function will return an error if it cannot find the workspace root in
-/// any parent directory.
-fn get_workspace_root() -> Result<std::path::PathBuf> {
-    let mut dir = std::env::current_dir()?;
-    // Traverse up the directory tree until we find Cargo.lock,
-    // which indicates the workspace root
-    while !dir.join("Cargo.lock").exists() {
-        if !dir.pop() {
-            anyhow::bail!("Could not find workspace root");
-        }
-    }
-    Ok(dir)
-}
+use super::get_workspace_root;
 
 /// Convert a nested Vec (`Vec<Vec<T>>`) into a 2D ndarray `Array2<T>`
 ///

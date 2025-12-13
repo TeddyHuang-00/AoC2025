@@ -55,6 +55,10 @@ impl Puzzle {
 impl Solution for Puzzle {
     const DAY: u8 = 12;
 
+    fn parse(example: bool) -> Self {
+        Self::new(example).unwrap_or_else(|e| panic!("Failed to parse input: {e}"))
+    }
+
     /// TBH, I had the feeling that this is too hard for a general case, so some
     /// simple heuristic like testing for capacity might be useful to reduce the
     /// number of searches. I just couldn't convince myself that this naive and
