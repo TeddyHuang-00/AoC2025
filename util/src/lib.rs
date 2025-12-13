@@ -1,6 +1,11 @@
 //! Utilities for Advent of Code challenges
 
 pub mod reader;
+pub mod timer;
+pub mod writer;
+
+use std::time::Duration;
+
 use anyhow::Result;
 
 use crate::timer::{BenchmarkResult, measure_many};
@@ -42,4 +47,34 @@ pub trait Solution {
     ///
     /// Should handle errors internally and return the result as a String.
     fn part2(&self) -> String;
+}
+
+pub trait Benchmark {
+    fn bench_parse(time_limit: Duration) -> BenchmarkResult;
+    fn bench_part1(time_limit: Duration) -> BenchmarkResult;
+    fn bench_part2(time_limit: Duration) -> BenchmarkResult;
+    #[must_use]
+    fn bench_all(time_limit: Duration) -> [BenchmarkResult; 3] {
+        [
+            Self::bench_parse(time_limit),
+            Self::bench_part1(time_limit),
+            Self::bench_part2(time_limit),
+        ]
+    }
+}
+
+impl<T: Solution> Benchmark for T {
+    fn bench_parse(time_limit: Duration) -> BenchmarkResult {
+        measure_many("Parse", time_limit, || T::parse(false))
+    }
+
+    fn bench_part1(time_limit: Duration) -> BenchmarkResult {
+        let puzzle = T::parse(false);
+        measure_many("Part 1", time_limit, move || puzzle.part1())
+    }
+
+    fn bench_part2(time_limit: Duration) -> BenchmarkResult {
+        let puzzle = T::parse(false);
+        measure_many("Part 2", time_limit, move || puzzle.part2())
+    }
 }
