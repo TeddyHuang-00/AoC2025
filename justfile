@@ -1,3 +1,5 @@
+set shell := ["fish", "-c"]
+
 # See tracking issue: https://github.com/casey/just/issues/2986
 # format string in backticks are not yet supported, so we use shell commands instead.
 
@@ -43,7 +45,7 @@ fix: format && format
 [doc("Run test coverage on library crates")]
 [group("housekeeping")]
 coverage:
-    cargo tarpaulin --lib --out Stdout
+    cargo tarpaulin --out Stdout --lib -p util --workspace -e day* --exclude-files day*/**
 
 [doc("Run tests for a specific day's puzzle with example input")]
 [group("puzzle")]
