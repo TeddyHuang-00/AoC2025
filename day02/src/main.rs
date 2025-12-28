@@ -77,12 +77,9 @@ impl Puzzle {
         let k = n / repeat;
         // Calculate the lower and upper bounds for n-digit numbers with the given
         // pattern
-        let lower = ((k - 1)..n)
-            .step_by(k as usize)
-            .map(|k| 10u64.pow(k))
-            .sum::<u64>();
-        let base = lower / 10u64.pow(k - 1);
-        let upper = base * (10u64.pow(k) - 1);
+        let upper = 10u64.pow(n) - 1;
+        let base = upper / (10u64.pow(k) - 1);
+        let lower = 10u64.pow(k - 1) * base;
         // Get the overlap between the given range and (lower, upper)
         let (start, end) = range;
         let start = start.max(lower);
