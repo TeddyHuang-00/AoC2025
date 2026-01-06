@@ -1,3 +1,7 @@
+# VSCode settings
+.vscode/settings.json
+
+# Ignore build artifacts and I/O files
 /target
 /inputs
 /outputs
