@@ -1,19 +1,62 @@
 use std::{
     cmp::Reverse,
-    collections::{BTreeMap, BinaryHeap},
+    collections::{BTreeMap, BTreeSet, BinaryHeap, HashMap},
 };
 
 use anyhow::Result;
-use ndarray::{parallel::prelude::*, prelude::*};
 use util::{
     Solution,
     reader::{parse_grid, read_file},
 };
 
+struct Morton;
+
+impl Morton {
+    /// Using magic bits to interleave the bits
+    ///
+    /// <https://www.forceflow.be/2013/10/07/morton-encodingdecoding-through-bit-interleaving-implementations#“Magic_Bits”_method>
+    const fn interleave_bits_by_3(x: i64) -> u64 {
+        let mut x = x.cast_unsigned() & 0x1ff_fff; // only look at the first 21 bits
+        x = (x | (x << 32)) & 0x1f_000_000_00f_fff;
+        x = (x | (x << 16)) & 0x1f_000_0ff_000_0ff;
+        x = (x | (x << 8)) & 0x1_00f_00f_00f_00f_00f;
+        x = (x | (x << 4)) & 0x1_0c3_0c3_0c3_0c3_0c3;
+        x = (x | (x << 2)) & 0x1_249_249_249_249_249;
+        x
+    }
+
+    const fn encode(x: i64, y: i64, z: i64) -> u64 {
+        (Self::interleave_bits_by_3(x) << 2)
+            | (Self::interleave_bits_by_3(y) << 1)
+            | Self::interleave_bits_by_3(z)
+    }
+
+    /// Using magic bits to deinterleave the bits
+    ///
+    /// <https://www.forceflow.be/2013/10/07/morton-encodingdecoding-through-bit-interleaving-implementations#“Magic_Bits”_method>
+    const fn uninterleave_bits_by_3(x: u64) -> i64 {
+        let mut x = (x & 0x1249_2492_4924_9249).cast_signed();
+        x = (x | (x >> 2)) & 0x1_0c3_0c3_0c3_0c3_0c3;
+        x = (x | (x >> 4)) & 0x1_00f_00f_00f_00f_00f;
+        x = (x | (x >> 8)) & 0x1f_000_0ff_000_0ff;
+        x = (x | (x >> 16)) & 0x1f_000_000_00f_fff;
+        x = (x | (x >> 32)) & 0x1ff_fff;
+        x
+    }
+
+    const fn decode(morton_code: u64) -> [i64; 3] {
+        [
+            Self::uninterleave_bits_by_3(morton_code >> 2),
+            Self::uninterleave_bits_by_3(morton_code >> 1),
+            Self::uninterleave_bits_by_3(morton_code),
+        ]
+    }
+}
+
 struct DisjointSet {
     /// Root of each element
     parent: Vec<usize>,
-    /// Map from root to component size (only for part 1)
+    /// Map from root to component size
     sizes: BTreeMap<usize, u64>,
 }
 
@@ -59,30 +102,193 @@ impl DisjointSet {
     }
 }
 
+struct Node {
+    morton_code: u64,
+    index: usize,
+    coordinate: [i64; 3],
+}
+
+impl Node {
+    const fn new(index: usize, coords: &[i64; 3]) -> Self {
+        let morton_code = Morton::encode(coords[0], coords[1], coords[2]);
+        Self {
+            morton_code,
+            index,
+            coordinate: [coords[0], coords[1], coords[2]],
+        }
+    }
+}
+
+#[derive(Clone, Copy)]
+struct LinearOctreeNode {
+    start: usize,
+    end: usize,
+    depth: usize,
+    prefix: u64,
+}
+
+impl LinearOctreeNode {
+    const fn bounding_box(&self) -> ([i64; 3], [i64; 3]) {
+        let min = Morton::decode(self.prefix);
+        let length = (1 << (22 - self.depth)) - 1;
+        let max = [min[0] | length, min[1] | length, min[2] | length];
+        (min, max)
+    }
+
+    const fn size(&self) -> usize {
+        self.end - self.start
+    }
+
+    fn split(&self, nodes: &[Node]) -> Vec<Self> {
+        let mut children = vec![];
+        let mut curr_start = self.start;
+        let last_octant = (nodes[self.end - 1].morton_code >> (3 * (20 - self.depth))) & 0b111;
+
+        for octant in 0..last_octant {
+            // If the octant has no nodes, skip it
+            let curr_octant = (nodes[curr_start].morton_code >> (3 * (20 - self.depth))) & 0b111;
+            if curr_octant > octant {
+                continue;
+            }
+
+            // Binary search to find the end of this octant
+            let mut low = curr_start;
+            let mut high = self.end;
+            while low < high {
+                let mid = usize::midpoint(low, high);
+                let mid_octant = (nodes[mid].morton_code >> (3 * (20 - self.depth))) & 0b111;
+                if mid_octant <= octant {
+                    low = mid + 1;
+                } else {
+                    high = mid;
+                }
+            }
+            children.push(Self {
+                start: curr_start,
+                end: low,
+                depth: self.depth + 1,
+                prefix: self.prefix | (octant << (3 * (20 - self.depth))),
+            });
+            curr_start = low;
+        }
+        children.push(Self {
+            start: curr_start,
+            end: self.end,
+            depth: self.depth + 1,
+            prefix: self.prefix | (last_octant << (3 * (20 - self.depth))),
+        });
+        children
+    }
+}
+
 struct Puzzle {
     /// Maximum number of steps to connect nodes (only for part 1)
     max_steps: usize,
-    /// Coordinates of nodes: [N, 3]
-    nodes: Array2<i64>,
+    /// Array of nodes (with coordinates and other info)
+    nodes: Vec<Node>,
+    /// Linear octree representation
+    octree: Vec<LinearOctreeNode>,
+    /// Children indices for each octree node
+    octree_children: Vec<Vec<usize>>,
 }
 
 impl Puzzle {
     fn new(example: bool) -> Result<Self> {
         let content = read_file(Self::DAY, example)?.replace(',', " ");
         let nodes = parse_grid(content, str::parse)?;
+        let mut nodes = nodes
+            .outer_iter()
+            .enumerate()
+            .map(|(i, row)| Node::new(i, &[row[0], row[1], row[2]]))
+            .collect::<Vec<_>>();
+        nodes.sort_unstable_by_key(|n| n.morton_code);
         let max_steps = if example { 10 } else { 1000 };
-        Ok(Self { max_steps, nodes })
+        let mut queue = vec![(
+            None,
+            LinearOctreeNode {
+                start: 0,
+                end: nodes.len(),
+                depth: 0,
+                prefix: 0,
+            },
+        )];
+        let mut octree = vec![];
+        let mut octree_children = vec![];
+        while let Some((parent, node)) = queue.pop() {
+            let this_index = octree.len();
+            octree.push(node);
+            octree_children.push(vec![]);
+            if let Some(p) = parent {
+                let parent_children: &mut Vec<usize> = &mut octree_children[p];
+                parent_children.push(this_index);
+            }
+            if node.size() > 1 {
+                for child in node.split(&nodes).into_iter().rev() {
+                    queue.push((Some(this_index), child));
+                }
+            }
+        }
+        Ok(Self {
+            max_steps,
+            nodes,
+            octree,
+            octree_children,
+        })
     }
 
-    /// Helper function to compute squared Euclidean distance between nodes i
-    /// and j
-    fn dist(&self, i: usize, j: usize) -> i64 {
-        if i >= self.nodes.nrows() || j >= self.nodes.nrows() {
-            return i64::MAX;
-        }
-        (&self.nodes.row(i) - &self.nodes.row(j))
-            .mapv(|x| x * x)
+    /// Helper function to compute squared Euclidean distance between nodes
+    fn dist(a: &Node, b: &Node) -> i64 {
+        (0..3)
+            .map(|dim| (a.coordinate[dim] - b.coordinate[dim]).pow(2))
             .sum()
+    }
+
+    /// Helper function to deepen the search between two octree nodes
+    fn deeper_search_nodes(
+        &self,
+        left_node_idx: usize,
+        right_node_idx: usize,
+    ) -> Vec<(usize, usize)> {
+        if left_node_idx == right_node_idx {
+            // Special case:
+            // both octrees are the same, only need to consider pairs between each child
+            let children = &self.octree_children[left_node_idx];
+            return children
+                .iter()
+                .enumerate()
+                .flat_map(|(idx, &i)| children[idx..].iter().map(move |&j| (i, j)))
+                .collect();
+        }
+
+        // General case: split the larger octree and cross with the smaller one
+        if self.octree[left_node_idx].size() > self.octree[right_node_idx].size() {
+            self.octree_children[left_node_idx]
+                .iter()
+                .map(|&child| (child, right_node_idx))
+                .collect()
+        } else {
+            self.octree_children[right_node_idx]
+                .iter()
+                .map(|&child| (left_node_idx, child))
+                .collect()
+        }
+    }
+
+    /// Helper function to precompute the components of each octree node
+    fn compute_components(&self, dsu: &mut DisjointSet, components: &mut [BTreeSet<usize>]) {
+        for idx in (0..self.octree.len()).rev() {
+            let node = &self.octree[idx];
+            components[idx].clear();
+            if node.size() == 1 {
+                components[idx].insert(dsu.find(self.nodes[node.start].index));
+            } else {
+                let mut comp = BTreeSet::new();
+                for &child_idx in &self.octree_children[idx] {
+                    comp.extend(components[child_idx].iter());
+                }
+                components[idx] = comp;
+            }
+        }
     }
 }
 
@@ -93,39 +299,66 @@ impl Solution for Puzzle {
         Self::new(example).unwrap_or_else(|e| panic!("Failed to parse input: {e}"))
     }
 
-    /// Since we only need to find top `max_steps` smallest edges, we can use a
-    /// max-heap to keep track while iterating through all pairs of nodes.
     fn part1(&self) -> String {
-        let mut dsu = DisjointSet::new(self.nodes.nrows());
-        (0..self.nodes.nrows())
-            .into_par_iter()
-            .flat_map_iter(|i| {
-                // Generate all pairs (i, j) with j > i for upper triangular matrix
-                ((i + 1)..self.nodes.nrows())
-                    .map(|j| (i, j))
-                    .collect::<Vec<_>>()
-            })
-            .fold(BinaryHeap::new, |mut heap, (i, j)| {
-                // Push the distance and the pair into the heap, pop the largest if exceeding
-                // max_steps to keep only smallest distances
-                let d = self.dist(i, j);
-                heap.push((d, i, j));
-                if heap.len() > self.max_steps {
-                    heap.pop();
+        let mut min_dist = BinaryHeap::new();
+        let mut search_stack = vec![(0, 0)];
+        while let Some((left_node_idx, right_node_idx)) = search_stack.pop() {
+            let left_node = self.octree[left_node_idx];
+            let right_node = self.octree[right_node_idx];
+            // Prune the search if the minimum possible distance is already larger than the
+            // largest distance in the heap
+            if let Some(&(delta, _, _)) = min_dist.peek() {
+                // Compute minimum possible distance between two octrees
+                let (left_min, left_max) = left_node.bounding_box();
+                let (right_min, right_max) = right_node.bounding_box();
+                let mut min_possible_dist = 0;
+                for dim in 0..3 {
+                    if left_max[dim] < right_min[dim] {
+                        min_possible_dist += (right_min[dim] - left_max[dim]).pow(2);
+                    } else if right_max[dim] < left_min[dim] {
+                        min_possible_dist += (left_min[dim] - right_max[dim]).pow(2);
+                    }
                 }
-                heap
-            })
-            .reduce(BinaryHeap::new, |mut acc, mut heap| {
-                // Further reduce between threads to get global smallest distances
-                acc.extend(heap.drain());
-                while acc.len() > self.max_steps {
-                    acc.pop();
+                if min_possible_dist >= delta {
+                    continue;
                 }
-                acc
-            })
-            .into_iter()
-            // Finally, perform the unions
-            .for_each(|(_, i, j)| dsu.union(i, j));
+            }
+
+            // Brute force when small enough
+            if left_node.size() * right_node.size() <= self.max_steps {
+                let pairs = if left_node_idx == right_node_idx {
+                    // Special case:
+                    // both octrees are the same, only need to consider pairs (i, j) where i < j
+                    (left_node.start..left_node.end)
+                        .flat_map(|i| (i + 1..left_node.end).map(move |j| (i, j)))
+                        .collect::<Vec<_>>()
+                } else {
+                    // General case: consider all pairs between left and right octrees
+                    (left_node.start..left_node.end)
+                        .flat_map(|i| (right_node.start..right_node.end).map(move |j| (i, j)))
+                        .collect::<Vec<_>>()
+                };
+                for (i, j) in pairs {
+                    let d = Self::dist(&self.nodes[i], &self.nodes[j]);
+                    if d > min_dist.peek().map_or(i64::MAX, |&(d, _, _)| d) {
+                        continue;
+                    }
+                    min_dist.push((d, i, j));
+                    if min_dist.len() > self.max_steps {
+                        min_dist.pop();
+                    }
+                }
+                continue;
+            }
+
+            // Otherwise, we need to further split the octrees, prioritizing the larger one
+            search_stack.extend(self.deeper_search_nodes(left_node_idx, right_node_idx));
+        }
+
+        let mut dsu = DisjointSet::new(self.nodes.len());
+        for (_, i, j) in min_dist {
+            dsu.union(i, j);
+        }
         // Get the first three largest components
         dsu.sizes
             .values()
@@ -142,54 +375,118 @@ impl Solution for Puzzle {
             .to_string()
     }
 
-    /// We can ignore connections that has no effect, i.e., connections between
-    /// already connected components. Since we already have the disjoint set,
-    /// this is easily achievable. On top of that, we can always keep track of
-    /// the closest neighbor for each node, and only update when a connection is
-    /// made, so that we don't have to consider all pairs every time.
     fn part2(&self) -> String {
-        // Initialize closest neighbor for each node, stored in a min-heap
-        let mut closest_neighbor = (0..self.nodes.nrows())
-            .into_par_iter()
-            .map(|i| {
-                (0..self.nodes.nrows())
-                    .filter_map(|j| (j != i).then_some((self.dist(i, j), i, j)))
-                    .min_by_key(|&(dist, _, _)| dist)
-                    .map_or_else(
-                        || unreachable!("There should be at least one other node"),
-                        Reverse,
-                    )
-            })
-            .collect::<BinaryHeap<_>>();
-        let mut dsu = DisjointSet::new(self.nodes.nrows());
-        loop {
-            // We greedily process the closest edge
-            let Some(Reverse((_, i, j))) = closest_neighbor.pop() else {
-                panic!("No more edges to process");
-            };
-            let root_i = dsu.find(i);
-            let root_j = dsu.find(j);
-            // If they belong to different components, connect them
-            if root_i != root_j {
-                dsu.union(i, j);
+        let mut dsu = DisjointSet::new(self.nodes.len());
+        let mut last_edge = (i64::MIN, 0, 0);
+        let mut components = vec![BTreeSet::new(); self.octree.len()];
+        while dsu.sizes.len() > 1 {
+            let mut min_edges = dsu.sizes.keys().fold(HashMap::new(), |mut map, &comp| {
+                map.insert(comp, (i64::MAX, 0, 0));
+                map
+            });
+            self.compute_components(&mut dsu, &mut components);
+            let mut search_stack = vec![(0, 0)];
+            while let Some((left_node_idx, right_node_idx)) = search_stack.pop() {
+                let left_node = self.octree[left_node_idx];
+                let right_node = self.octree[right_node_idx];
+                // Prune if both octrees belong to the same component
+                if components[left_node_idx].len() == 1
+                    && components[left_node_idx] == components[right_node_idx]
+                {
+                    continue;
+                }
+
+                // Prune the search if the minimum possible distance is already larger than the
+                // largest distance
+                let max_min_edge = components[left_node_idx]
+                    .iter()
+                    .chain(components[right_node_idx].iter())
+                    .fold(i64::MIN, |max_edge, &comp| {
+                        let Some((d, _, _)) = min_edges.get(&comp) else {
+                            unreachable!("Every component should have an entry in min_edges")
+                        };
+                        max_edge.max(*d)
+                    });
+                if max_min_edge < i64::MAX {
+                    // Compute minimum possible distance between two octrees
+                    let (left_min, left_max) = left_node.bounding_box();
+                    let (right_min, right_max) = right_node.bounding_box();
+                    let mut min_possible_dist = 0;
+                    for dim in 0..3 {
+                        if left_max[dim] < right_min[dim] {
+                            min_possible_dist += (right_min[dim] - left_max[dim]).pow(2);
+                        } else if right_max[dim] < left_min[dim] {
+                            min_possible_dist += (left_min[dim] - right_max[dim]).pow(2);
+                        }
+                    }
+                    if min_possible_dist >= max_min_edge {
+                        continue;
+                    }
+                }
+
+                // Brute force when small enough
+                if left_node.size() * right_node.size() <= 64 {
+                    let pairs = if left_node_idx == right_node_idx {
+                        // Special case:
+                        // both octrees are the same, only need to consider pairs (i, j) where i < j
+                        let nodes = (left_node.start..left_node.end)
+                            .map(|i| (i, dsu.find(self.nodes[i].index)))
+                            .collect::<Vec<_>>();
+                        nodes
+                            .iter()
+                            .enumerate()
+                            .flat_map(|(idx, &i)| {
+                                nodes[idx + 1..]
+                                    .iter()
+                                    .filter_map(move |&j| (i.1 != j.1).then_some((i, j)))
+                            })
+                            .collect::<Vec<_>>()
+                    } else {
+                        // General case: consider all pairs between left and right octrees
+                        let left_nodes = (left_node.start..left_node.end)
+                            .map(|i| (i, dsu.find(self.nodes[i].index)))
+                            .collect::<Vec<_>>();
+                        let right_nodes = (right_node.start..right_node.end)
+                            .map(|i| (i, dsu.find(self.nodes[i].index)))
+                            .collect::<Vec<_>>();
+
+                        left_nodes
+                            .into_iter()
+                            .flat_map(|i| {
+                                right_nodes
+                                    .iter()
+                                    .filter_map(move |&j| (i.1 != j.1).then_some((i, j)))
+                            })
+                            .collect::<Vec<_>>()
+                    };
+                    for ((i, ci), (j, cj)) in pairs {
+                        let d = Self::dist(&self.nodes[i], &self.nodes[j]);
+                        min_edges.entry(ci).and_modify(|entry| {
+                            if d < entry.0 {
+                                *entry = (d, i, j);
+                            }
+                        });
+                        min_edges.entry(cj).and_modify(|entry| {
+                            if d < entry.0 {
+                                *entry = (d, i, j);
+                            }
+                        });
+                    }
+                    continue;
+                }
+
+                // Otherwise, we need to further split the octrees, prioritizing the larger one
+                search_stack.extend(self.deeper_search_nodes(left_node_idx, right_node_idx));
             }
-            // If we find that all nodes are connected after this union,
-            // we can return the product of the X coordinates of this last edge
-            if dsu.sizes.len() == 1 {
-                return (self.nodes[[i, 0]] * self.nodes[[j, 0]]).to_string();
+            // Add the minimum edges found to the disjoint set
+            for (_, (d, i, j)) in min_edges {
+                dsu.union(self.nodes[i].index, self.nodes[j].index);
+                if d > last_edge.0 {
+                    last_edge = (d, i, j);
+                }
             }
-            // Otherwise, we need to continue updating the closest neighbor for node i
-            closest_neighbor.push(
-                (0..self.nodes.nrows())
-                    // Filter out nodes in the same component as i
-                    .filter_map(|k| (root_i != dsu.find(k)).then_some((self.dist(i, k), i, k)))
-                    .min_by_key(|&(dist, _, _)| dist)
-                    .map_or_else(
-                        || unreachable!("At least one different component should exist"),
-                        Reverse,
-                    ),
-            );
         }
+        (self.nodes[last_edge.1].coordinate[0] * self.nodes[last_edge.2].coordinate[0]).to_string()
     }
 }
 

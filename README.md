@@ -25,8 +25,8 @@ Below are the benchmarking result of different part of the solutions, ran on M1 
 | 04  | 180.209 $\pm$ 2.709 µs  | 111.583 $\pm$ 11.792 µs |  12.038 $\pm$ 0.284 ms  |                             |
 | 05  |  70.625 $\pm$ 1.375 µs  |  23.542 $\pm$ 5.000 µs  |  19.584 $\pm$ 4.582 µs  | Binary search               |
 | 06  | 107.375 $\pm$ 2.375 µs  |  40.625 $\pm$ 6.250 µs  | 117.583 $\pm$ 9.625 µs  |                             |
-| 07  | 942.291 $\pm$ 43.958 µs |  3.834 $\pm$ 0.041 µs   |  3.417 $\pm$ 0.041 µs   | BFS variant                 |
-| 08  | 123.083 $\pm$ 2.250 µs  |  21.040 $\pm$ 1.829 ms  | 281.640 $\pm$ 0.541 ms  | Kruskal's algorithm         |
+| 07  | 816.396 $\pm$ 41.666 µs |  3.375 $\pm$ 0.042 µs   |  3.083 $\pm$ 0.042 µs   | BFS variant                 |
+| 08  | 208.667 $\pm$ 4.583 µs  |  1.337 $\pm$ 0.025 ms   |  42.999 $\pm$ 0.805 ms  | Z-order curve + Octree      |
 | 09  |  67.145 $\pm$ 2.979 µs  |  2.552 $\pm$ 0.243 ms   |  9.382 $\pm$ 0.942 ms   | Intersection of edges       |
 | 10  | 203.583 $\pm$ 5.291 µs  | 836.958 $\pm$ 70.437 µs |  95.850 $\pm$ 3.624 ms  | Divide and conquer          |
 | 11  | 433.979 $\pm$ 9.896 µs  |  1.639 $\pm$ 0.117 ms   |  1.725 $\pm$ 0.131 ms   | Dynamic programming         |
