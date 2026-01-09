@@ -15,7 +15,7 @@ The core idea is to leverage Rust's crate system and Cargo's workspace feature t
 
 Although not the primary focus of my solutions, I tried my best to find the most efficient approach to each day's puzzle, which might take advantage of certain structures of the problem input thus not directly comparable with general solution to the described problem.
 
-Below are the benchmarking result of different part of the solutions, ran on M1 max with 64G RAM. The median $\pm$ MAD of runtimes are reported. The results are quite satisfactory, with a total runtime of under half a second for all 12 days' puzzles on my machine.
+Below are the benchmarking result of different part of the solutions, ran on M1 max with 64G RAM. The median $\pm$ MAD of runtimes are reported. The results are quite satisfactory, with a total runtime around 150 ms for all 12 days' puzzles on my machine.
 
 | Day |         Parsing         |         Part 1          |         Part 2          | Note                        |
 | --- | :---------------------: | :---------------------: | :---------------------: | --------------------------- |
