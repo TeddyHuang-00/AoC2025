@@ -9,6 +9,7 @@ use util::{
     reader::{parse_grid, read_file},
 };
 
+/// Morton encoding and decoding for 3D coordinates
 struct Morton;
 
 impl Morton {
@@ -25,6 +26,9 @@ impl Morton {
         x
     }
 
+    /// Encode 3D coordinates into a single Morton code
+    ///
+    /// NOTE: only works for non-negative coordinates within 21 bits
     const fn encode(x: i64, y: i64, z: i64) -> u64 {
         (Self::interleave_bits_by_3(x) << 2)
             | (Self::interleave_bits_by_3(y) << 1)
@@ -44,6 +48,7 @@ impl Morton {
         x
     }
 
+    /// Decode a Morton code into 3D coordinates
     const fn decode(morton_code: u64) -> [i64; 3] {
         [
             Self::uninterleave_bits_by_3(morton_code >> 2),
@@ -102,6 +107,7 @@ impl DisjointSet {
     }
 }
 
+/// Processed input node with Morton code and original index
 struct Node {
     morton_code: u64,
     index: usize,
@@ -119,15 +125,23 @@ impl Node {
     }
 }
 
+/// Linear octree node representation
 #[derive(Clone, Copy)]
 struct LinearOctreeNode {
+    /// Start index in the nodes array
     start: usize,
+    /// End index in the nodes array
     end: usize,
+    /// Current depth in the octree
     depth: usize,
+    /// Morton code prefix shared by the nodes in this octree node
     prefix: u64,
 }
 
 impl LinearOctreeNode {
+    /// Get the loose bounding box defined by the Morton code prefix
+    #[allow(dead_code)]
+    #[deprecated(note = "Use the precomputed octree_bounding_boxes instead")]
     const fn bounding_box(&self) -> ([i64; 3], [i64; 3]) {
         let min = Morton::decode(self.prefix);
         let length = (1 << (22 - self.depth)) - 1;
@@ -135,10 +149,12 @@ impl LinearOctreeNode {
         (min, max)
     }
 
+    /// Get the number of nodes in this octree node
     const fn size(&self) -> usize {
         self.end - self.start
     }
 
+    /// Split this octree node into its children
     fn split(&self, nodes: &[Node]) -> Vec<Self> {
         let mut children = vec![];
         let mut curr_start = self.start;
@@ -190,9 +206,27 @@ struct Puzzle {
     octree: Vec<LinearOctreeNode>,
     /// Children indices for each octree node
     octree_children: Vec<Vec<usize>>,
+    /// Tight bounding boxes for each octree node
+    octree_bounding_boxes: Vec<([i64; 3], [i64; 3])>,
 }
 
 impl Puzzle {
+    /// Parse the input and preprocess it
+    ///
+    /// This includes several steps:
+    /// 1. First parse the input into a list of nodes with coordinates
+    /// 2. Compute the Morton code for each node and sort by it
+    /// 3. Build a linear octree from the sorted nodes
+    /// 4. Precompute tight bounding boxes for each octree node
+    ///
+    /// In reality, if the size of the problem is not known or may be very
+    /// large, step 3 and 4 should be omitted, instead we could use virtual tree
+    /// traversal during the search and use a loose bounding box based on Morton
+    /// code prefix.
+    ///
+    /// However, for this specific problem, the input size is known and
+    /// manageable, so we can afford to build the full octree and precompute
+    /// bounding boxes for efficiency.
     fn new(example: bool) -> Result<Self> {
         let content = read_file(Self::DAY, example)?.replace(',', " ");
         let nodes = parse_grid(content, str::parse)?;
@@ -228,11 +262,30 @@ impl Puzzle {
                 }
             }
         }
+        let mut octree_bounding_boxes = vec![([0; 3], [0; 3]); octree.len()];
+        for (idx, node) in octree.iter().enumerate().rev() {
+            if node.size() == 1 {
+                octree_bounding_boxes[idx] =
+                    (nodes[node.start].coordinate, nodes[node.start].coordinate);
+            } else {
+                let mut min_bb = [i64::MAX; 3];
+                let mut max_bb = [i64::MIN; 3];
+                for &child_idx in &octree_children[idx] {
+                    let (child_min, child_max) = octree_bounding_boxes[child_idx];
+                    for dim in 0..3 {
+                        min_bb[dim] = min_bb[dim].min(child_min[dim]);
+                        max_bb[dim] = max_bb[dim].max(child_max[dim]);
+                    }
+                }
+                octree_bounding_boxes[idx] = (min_bb, max_bb);
+            }
+        }
         Ok(Self {
             max_steps,
             nodes,
             octree,
             octree_children,
+            octree_bounding_boxes,
         })
     }
 
@@ -299,6 +352,17 @@ impl Solution for Puzzle {
         Self::new(example).unwrap_or_else(|e| panic!("Failed to parse input: {e}"))
     }
 
+    /// To find the k-smallest distances, we can use a max-heap of size k to
+    /// keep track of the smallest distances found so far.
+    ///
+    /// The search is done by a dual traversal of the octrees, and is pruned if
+    /// the minimum possible distance between two octrees is already larger than
+    /// the largest distance in the heap. This should be very efficient as we
+    /// can avoid unnecessary distance calculations by large margins.
+    ///
+    /// When the octrees are small enough, we can brute-force compute all
+    /// pairwise distances between the nodes in the two octrees and update the
+    /// heap accordingly.
     fn part1(&self) -> String {
         let mut min_dist = BinaryHeap::new();
         let mut search_stack = vec![(0, 0)];
@@ -309,8 +373,8 @@ impl Solution for Puzzle {
             // largest distance in the heap
             if let Some(&(delta, _, _)) = min_dist.peek() {
                 // Compute minimum possible distance between two octrees
-                let (left_min, left_max) = left_node.bounding_box();
-                let (right_min, right_max) = right_node.bounding_box();
+                let (left_min, left_max) = self.octree_bounding_boxes[left_node_idx];
+                let (right_min, right_max) = self.octree_bounding_boxes[right_node_idx];
                 let mut min_possible_dist = 0;
                 for dim in 0..3 {
                     if left_max[dim] < right_min[dim] {
@@ -355,6 +419,7 @@ impl Solution for Puzzle {
             search_stack.extend(self.deeper_search_nodes(left_node_idx, right_node_idx));
         }
 
+        // Finally, build the disjoint set from the minimum distances found
         let mut dsu = DisjointSet::new(self.nodes.len());
         for (_, i, j) in min_dist {
             dsu.union(i, j);
@@ -375,9 +440,22 @@ impl Solution for Puzzle {
             .to_string()
     }
 
+    /// This is essentially find the largest edge in the Minimum Spanning Tree
+    /// (MST) of the complete graph between nodes. To build this tree as fast as
+    /// possible, we can use Borůvka's algorithm with octree-based dual
+    /// traversal to find the minimum outgoing edge for each component in each
+    /// iteration.
+    ///
+    /// To start with, each node is its own component. In each iteration, we
+    /// perform a dual traversal of the octrees to find the minimum outgoing
+    /// edge for each component. We then add these edges to the MST and merge
+    /// the components using a disjoint set. This process is repeated until all
+    /// nodes are in a single component. The largest edge added during this
+    /// process is then answer.
     fn part2(&self) -> String {
         let mut dsu = DisjointSet::new(self.nodes.len());
         let mut last_edge = (i64::MIN, 0, 0);
+        // Precompute components for each octree node so that we don't have to repeatedly find the component of each node during the search
         let mut components = vec![BTreeSet::new(); self.octree.len()];
         while dsu.sizes.len() > 1 {
             let mut min_edges = dsu.sizes.keys().fold(HashMap::new(), |mut map, &comp| {
@@ -409,8 +487,8 @@ impl Solution for Puzzle {
                     });
                 if max_min_edge < i64::MAX {
                     // Compute minimum possible distance between two octrees
-                    let (left_min, left_max) = left_node.bounding_box();
-                    let (right_min, right_max) = right_node.bounding_box();
+                    let (left_min, left_max) = self.octree_bounding_boxes[left_node_idx];
+                    let (right_min, right_max) = self.octree_bounding_boxes[right_node_idx];
                     let mut min_possible_dist = 0;
                     for dim in 0..3 {
                         if left_max[dim] < right_min[dim] {
