@@ -26,7 +26,7 @@ Below are the benchmarking result of different part of the solutions, ran on M1 
 | 05  |  70.625 $\pm$ 1.375 µs  |  23.542 $\pm$ 5.000 µs  |  19.584 $\pm$ 4.582 µs  | Binary search                 |
 | 06  | 107.375 $\pm$ 2.375 µs  |  40.625 $\pm$ 6.250 µs  | 117.583 $\pm$ 9.625 µs  |                               |
 | 07  | 816.396 $\pm$ 41.666 µs |  3.375 $\pm$ 0.042 µs   |  3.083 $\pm$ 0.042 µs   | Dynamic programming (I guess) |
-| 08  | 232.458 $\pm$ 7.250 µs  | 757.125 $\pm$ 17.417 µs |  24.405 $\pm$ 0.155 ms  | Z-order curve + Octree        |
+| 08  | 232.458 $\pm$ 7.250 µs  | 757.125 $\pm$ 17.417 µs |  24.405 $\pm$ 0.155 ms  | Octree + Branch and Bound     |
 | 09  |  67.145 $\pm$ 2.979 µs  |  2.552 $\pm$ 0.243 ms   |  9.382 $\pm$ 0.942 ms   | Intersection of edges         |
 | 10  | 203.583 $\pm$ 5.291 µs  | 836.958 $\pm$ 70.437 µs |  95.850 $\pm$ 3.624 ms  | Divide and conquer            |
 | 11  | 433.979 $\pm$ 9.896 µs  |  1.639 $\pm$ 0.117 ms   |  1.725 $\pm$ 0.131 ms   | Dynamic programming           |
