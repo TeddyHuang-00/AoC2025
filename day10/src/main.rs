@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, HashMap};
+use std::collections::HashMap;
 
 use anyhow::Result;
 use rayon::prelude::*;
@@ -105,7 +105,8 @@ impl Puzzle {
     /// The state space is limited to 2^n where n is the number of lights (at
     /// most 10), making this approach efficient.
     fn binary_backpack(goal: LightState, transition: &[LightState]) -> Option<u16> {
-        let mut dp = BTreeMap::from_iter([(0, 0)]);
+        let mut dp = HashMap::new();
+        dp.insert(0, 0);
         for &t in transition {
             // Not pressing the button is implicitly handled by carrying over existing
             // states

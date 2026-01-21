@@ -1,6 +1,6 @@
 use std::{
     cmp::Reverse,
-    collections::{BTreeMap, BTreeSet, BinaryHeap, HashMap},
+    collections::{BTreeSet, BinaryHeap, HashMap},
 };
 
 use anyhow::Result;
@@ -62,7 +62,7 @@ struct DisjointSet {
     /// Root of each element
     parent: Vec<usize>,
     /// Map from root to component size
-    sizes: BTreeMap<usize, u64>,
+    sizes: HashMap<usize, u64>,
 }
 
 impl DisjointSet {
@@ -70,7 +70,7 @@ impl DisjointSet {
     fn new(size: usize) -> Self {
         Self {
             parent: (0..size).collect(),
-            sizes: (0..size).map(|i| (i, 1)).collect::<BTreeMap<_, _>>(),
+            sizes: (0..size).map(|i| (i, 1)).collect::<_>(),
         }
     }
 
@@ -455,7 +455,8 @@ impl Solution for Puzzle {
     fn part2(&self) -> String {
         let mut dsu = DisjointSet::new(self.nodes.len());
         let mut last_edge = (i64::MIN, 0, 0);
-        // Precompute components for each octree node so that we don't have to repeatedly find the component of each node during the search
+        // Precompute components for each octree node so that we don't have to
+        // repeatedly find the component of each node during the search
         let mut components = vec![BTreeSet::new(); self.octree.len()];
         while dsu.sizes.len() > 1 {
             let mut min_edges = dsu.sizes.keys().fold(HashMap::new(), |mut map, &comp| {

@@ -1,5 +1,5 @@
 use std::{
-    collections::{BTreeMap, BTreeSet},
+    collections::{HashMap, HashSet},
     ops::Add,
     str::FromStr,
 };
@@ -13,11 +13,11 @@ use util::{
 
 struct Puzzle {
     /// Incoming nodes for each node (parents)
-    in_nodes: Vec<BTreeSet<usize>>,
+    in_nodes: Vec<HashSet<usize>>,
     /// Outgoing nodes for each node (children)
     out_nodes: Vec<Vec<usize>>,
     /// Mapping from machine names to node indices (just for convenience)
-    names: BTreeMap<String, usize>,
+    names: HashMap<String, usize>,
 }
 
 impl Puzzle {
@@ -38,7 +38,7 @@ impl Puzzle {
                     i,
                 ))
             })
-            .collect::<Result<BTreeMap<_, _>>>()?;
+            .collect::<Result<HashMap<_, _>>>()?;
         let out_nodes = machines
             .iter()
             .map(|m| {
@@ -54,7 +54,7 @@ impl Puzzle {
             })
             .collect::<Result<Vec<Vec<_>>>>()?;
         let in_nodes = out_nodes.iter().enumerate().fold(
-            vec![BTreeSet::new(); out_nodes.len()],
+            vec![HashSet::new(); out_nodes.len()],
             |mut acc, (i, outs)| {
                 for &j in outs {
                     acc[j].insert(i);
@@ -94,7 +94,7 @@ impl Puzzle {
             .enumerate()
             .filter_map(|(i, ins)| if ins.is_empty() { Some(i) } else { None })
             .collect::<Vec<_>>();
-        let mut visited = BTreeSet::<usize>::new();
+        let mut visited = HashSet::<usize>::new();
         // This loop is fail-safe because even the graph is not a DAG, we will just be
         // stuck when there is a cycle and no new nodes can be added to the frontier. So
         // the algorithm will terminate, and the contribution from the cycle will just
