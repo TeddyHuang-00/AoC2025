@@ -206,19 +206,16 @@ where
         .iter()
         .map(|&x| x.abs_diff(median))
         .collect::<Vec<_>>());
-    // We allow the cast here, because even u64 is large enough to hold values that
-    // are over 500 years in nanoseconds. No test results will ever be that large.
-    #[allow(clippy::cast_possible_truncation)]
     BenchmarkResult {
         name: name.as_ref().to_owned(),
         time_limit,
         iterations,
-        fastest: Duration::from_nanos(fastest as u64),
-        slowest: Duration::from_nanos(slowest as u64),
-        mean: Duration::from_nanos(mean as u64),
-        std_dev: Duration::from_nanos(std_dev as u64),
-        median: Duration::from_nanos(median as u64),
-        mad: Duration::from_nanos(mad as u64),
+        fastest: Duration::from_nanos_u128(fastest),
+        slowest: Duration::from_nanos_u128(slowest),
+        mean: Duration::from_nanos_u128(mean),
+        std_dev: Duration::from_nanos_u128(std_dev),
+        median: Duration::from_nanos_u128(median),
+        mad: Duration::from_nanos_u128(mad),
     }
 }
 
